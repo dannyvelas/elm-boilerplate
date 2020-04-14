@@ -1,0 +1,34 @@
+<!doctype html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+        <link rel="stylesheet" type="text/css" href="/assets/css/bootstrap.css">
+    </head>
+    <body>
+        <div id="app"></div>
+        <script src="/elm.js"></script>
+        <script>
+            const storageKey = "store";
+            const flags = localStorage.getItem(storageKey);
+            const app = Elm.Main.init({flags: flags});
+
+            app.ports.storeCache.subscribe((val) => {
+                if (val === null) {
+                    localStorage.removeItem(storageKey);
+                } else {
+                    localStorage.setItem(storageKey, JSON.stringify(val));
+                }
+            
+                setTimeout(() => { app.ports.onStoreChange.send(val); }, 0);
+            });
+            
+            window.addEventListener("storage", (event) => {
+                if(event.storageArea === localStorage && event.key === storageKey) {
+                    app.ports.onStoreChange.send(event.newValue);
+                }
+            }, false);
+        </script>
+    </body>
+</html>
+
