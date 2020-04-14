@@ -1,6 +1,6 @@
 module Types.Avatar exposing (Avatar, encode, decode)
 
-import Json.Decode as Decode exposing (Decoder, at, string)
+import Json.Decode as Decode exposing (Decoder, at)
 import Json.Encode as Encode
 
 
@@ -15,5 +15,5 @@ encode (Avatar avatar) =
 
 decode : Decoder Avatar
 decode =
-    Decode.map Avatar (at [ "avatar" ] string)
+    Decode.map Avatar (at [ "avatar" ] Decode.string)
 

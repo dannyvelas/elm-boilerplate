@@ -1,6 +1,6 @@
 module Types.Id exposing (Id, decode, encode, toString, urlParser)
 
-import Json.Decode as Decode exposing (Decoder, string)
+import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
 import Url.Parser as Parser exposing (Parser)
 
@@ -20,7 +20,7 @@ urlParser =
 
 decode : Decoder Id
 decode =
-    Decode.map Id string
+    Decode.map Id Decode.string
 
 
 encode : Id -> Encode.Value

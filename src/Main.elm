@@ -1,4 +1,4 @@
-module Main exposing (..)
+module Main exposing (main)
 
 import Api
 import Browser exposing (Document)
@@ -8,7 +8,9 @@ import Json.Encode as Encode
 import Page
 import Pages.Blank
 import Pages.Home
+import Pages.Login
 import Pages.NotFound
+import Pages.Signup
 import Route
 import Session exposing (Session)
 import Url exposing (Url)
@@ -37,7 +39,9 @@ init maybeViewer url key =
 type Model
     = NotFound Session
     | Redirect Session
-    | Home Pages.Home.Model
+    | Home Session
+    | Signup Pages.Signup.Model
+    | Login Pages.Login.Model
 
 
 
@@ -66,8 +70,14 @@ view model =
         Redirect _ ->
             Page.view viewer Page.Other Pages.Blank.view
 
-        Home homeModel ->
-            viewPage Page.Home GotHomeMsg (Pages.Home.view homeModel)
+        Home _ ->
+            Page.view viewer Page.Other Pages.Home.view
+
+        Signup signupModel ->
+            viewPage Page.Signup GotSignupMsg (Pages.Signup.view signupModel)
+
+        Login loginModel ->
+            viewPage Page.Login GotLoginMsg (Pages.Login.view loginModel)
 
 
 
@@ -78,7 +88,8 @@ type Msg
     = ClickedLink Browser.UrlRequest
     | ChangedUrl Url
     | GotSession Session
-    | GotHomeMsg Pages.Home.Msg
+    | GotSignupMsg Pages.Signup.Msg
+    | GotLoginMsg Pages.Login.Msg
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -99,13 +110,16 @@ update msg model =
         ( ChangedUrl url, _ ) ->
             updateUrl url model
 
-        ( GotHomeMsg homeMsg, Home homeModel ) ->
-            Pages.Home.update homeMsg homeModel
-                |> updateWith Home GotHomeMsg
+        ( GotSignupMsg signupMsg, Signup signupModel ) ->
+            Pages.Signup.update signupMsg signupModel
+                |> updateWith Signup GotSignupMsg
+
+        ( GotLoginMsg loginMsg, Login loginModel ) ->
+            Pages.Login.update loginMsg loginModel
+                |> updateWith Login GotLoginMsg
 
         ( _, _ ) ->
             ( model, Cmd.none )
-
 
 
 
@@ -121,8 +135,14 @@ subscriptions model =
         Redirect _ ->
             Session.changes GotSession (Session.getNavKey (toSession model))
 
-        Home homeModel ->
-            Sub.map GotHomeMsg (Pages.Home.subscriptions homeModel)
+        Home _ ->
+            Sub.none
+
+        Signup _ ->
+            Sub.none
+
+        Login loginModel ->
+            Sub.map GotLoginMsg (Pages.Login.subscriptions loginModel)
 
 
 
@@ -138,8 +158,14 @@ toSession model =
         Redirect session ->
             session
 
-        Home homeModel ->
-            Pages.Home.toSession homeModel
+        Home session ->
+            session
+
+        Signup signupModel ->
+            Pages.Signup.toSession signupModel
+
+        Login loginModel ->
+            Pages.Login.toSession loginModel
 
 
 updateUrl : Url -> Model -> ( Model, Cmd Msg )
@@ -150,8 +176,15 @@ updateUrl url model =
     in
     case Parser.parse Route.parser url of
         Just Route.Home ->
-            Pages.Home.init session
-                |> updateWith Home GotHomeMsg
+            ( Home session, Cmd.none )
+
+        Just Route.Signup ->
+            Pages.Signup.init session
+                |> updateWith Signup GotSignupMsg
+
+        Just Route.Login ->
+            Pages.Login.init session
+                |> updateWith Login GotLoginMsg
 
         Nothing ->
             ( NotFound session, Cmd.none )

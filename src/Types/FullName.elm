@@ -1,6 +1,6 @@
 module Types.FullName exposing (FullName, decode, encodeFirst, encodeLast)
 
-import Json.Decode as Decode exposing (Decoder, at, string)
+import Json.Decode as Decode exposing (Decoder, at)
 import Json.Encode as Encode
 
 
@@ -21,6 +21,6 @@ encodeLast (FullName _ lastName) =
 decode : Decoder FullName
 decode =
     Decode.map2 FullName
-        (at [ "firstName" ] string)
-        (at [ "lastName" ] string)
+        (at [ "firstName" ] Decode.string)
+        (at [ "lastName" ] Decode.string)
 

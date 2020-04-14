@@ -1,4 +1,4 @@
-module Viewer exposing (Viewer, decode, getAvatar, getFullName)
+module Viewer exposing (Viewer, decode, getAvatar, getFullName, store)
 
 import Api exposing (Cred)
 import Json.Decode as Decode exposing (Decoder)
@@ -22,6 +22,15 @@ getFullName (Viewer fullName _ _) =
 getAvatar : Viewer -> Avatar
 getAvatar (Viewer _ avatar _) =
     avatar
+
+
+
+-- HELPERS
+
+
+store : Viewer -> Cmd msg
+store (Viewer fullName avatar cred) =
+    Api.storeCredWith fullName avatar cred
 
 
 

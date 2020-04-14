@@ -1,16 +1,32 @@
-port module Api exposing (Cred, application, viewerChanges)
+port module Api exposing
+    ( Cred
+    , application
+    , decodeErrors
+    , login
+    , request
+    , storeCredWith
+    , viewerChanges
+    )
 
 import Browser
 import Browser.Navigation as Nav
-import Json.Decode as Decode exposing (Decoder, at, string)
+import Http
+import Http.Detailed
+import Json.Decode as Decode exposing (Decoder, at)
 import Json.Encode as Encode
+import Types.Avatar exposing (Avatar)
+import Types.FullName exposing (FullName)
 import Types.Id exposing (Id)
 import Url exposing (Url)
 
 
-
 type Cred
     = Cred Id String
+
+
+credHeader : Cred -> Http.Header
+credHeader (Cred _ token) =
+    Http.header "x-auth-token" token
 
 
 
@@ -21,6 +37,49 @@ port storeCache : Maybe Encode.Value -> Cmd msg
 
 
 port onStoreChange : (Encode.Value -> msg) -> Sub msg
+
+
+
+-- SENDING
+
+
+request :
+    Maybe Cred
+    -> Http.Body
+    -> (Result (Http.Detailed.Error String) ( Http.Metadata, a ) -> msg)
+    -> Decoder a
+    -> Cmd msg
+request maybeCred body toMsg decoder =
+    Http.request
+        { method = "POST"
+        , headers =
+            case maybeCred of
+                Just cred ->
+                    [ credHeader cred ]
+
+                Nothing ->
+                    []
+        , body = body
+        , expect = Http.Detailed.expectJson toMsg decoder
+        , timeout = Nothing
+        , tracker = Nothing
+
+        --, url = "https://warm-fjord-23969.herokuapp.com/graphql"
+        , url = "http://192.168.122.1:5000/graphql"
+        }
+
+
+login :
+    Http.Body
+    -> (Result (Http.Detailed.Error String) ( Http.Metadata, a ) -> msg)
+    -> Decoder (Cred -> a)
+    -> Cmd msg
+login body toMsg decoder =
+    request
+        Nothing
+        body
+        toMsg
+        (at [ "data", "loginResident" ] (decoderFromCred decoder))
 
 
 
@@ -59,6 +118,60 @@ application viewerDecoder config =
         }
 
 
+decodeErrors : Http.Detailed.Error String -> List String
+decodeErrors err =
+    let
+        customError : String -> List String
+        customError body =
+            let
+                gqlerr =
+                    Decode.decodeString
+                        (at [ "errors" ] (Decode.list (at [ "message" ] Decode.string)))
+                        body
+            in
+            case gqlerr of
+                Ok errors ->
+                    List.map (String.append "Error: ") errors
+
+                Err _ ->
+                    [ "Server Error." ]
+    in
+    case err of
+        Http.Detailed.Timeout ->
+            [ "Server Error: Timeout exceeded" ]
+
+        Http.Detailed.NetworkError ->
+            [ "Server Error: Network error" ]
+
+        Http.Detailed.BadStatus _ body ->
+            customError body
+
+        Http.Detailed.BadBody _ body _ ->
+            customError body
+
+        Http.Detailed.BadUrl url ->
+            [ "Server Error: Malformed url: " ++ url ]
+
+
+storeCredWith : FullName -> Avatar -> Cred -> Cmd msg
+storeCredWith fullName avatar (Cred userId token) =
+    let
+        json =
+            Encode.object
+                [ ( "user"
+                  , Encode.object
+                        [ ( "id", Types.Id.encode userId )
+                        , ( "firstName", Types.FullName.encodeFirst fullName )
+                        , ( "lastName", Types.FullName.encodeLast fullName )
+                        , ( "avatar", Types.Avatar.encode avatar )
+                        , ( "token", Encode.string token )
+                        ]
+                  )
+                ]
+    in
+    storeCache (Just json)
+
+
 viewerChanges : (Maybe viewer -> msg) -> Decoder (Cred -> viewer) -> Sub msg
 viewerChanges toMsg decoder =
     onStoreChange (\value -> toMsg (decodeFromChange decoder value))
@@ -87,5 +200,4 @@ decodeCred =
     Decode.map2
         Cred
         (at [ "id" ] Types.Id.decode)
-        (at [ "token" ] string)
-
+        (at [ "token" ] Decode.string)
